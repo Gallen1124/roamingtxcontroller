@@ -464,47 +464,57 @@ class MCP2515():
         print("Reset")
         self.Reset()
         time.sleep(0.1)
-			
-		#set baud rate 125Kbps
-		#<7:6>SJW=00(1TQ)
+        	
+        #set baud rate 125Kbps
+        #<7:6>SJW=00(1TQ)
 		#<5:0>BRP=0x03(TQ=[2*(BRP+1)]/Fsoc=2*4/8M=1us)
-		#<5:0>BRP=0x03 (TQ=[2*(BRP+1)]/Fsoc=2*8/16M=1us)
-		# self.WriteBytes(CNF1, 7)		
-		# self.WriteBytes(CNF2,0x80|PHSEG1_3TQ|PRSEG_1TQ)		
-		# self.WriteBytes(CNF3,PHSEG2_3TQ)
+        #<5:0>BRP=0x03 (TQ=[2*(BRP+1)]/Fsoc=2*8/16M=1us)
+        # self.WriteBytes(CNF1, 7)		
+        # self.WriteBytes(CNF2,0x80|PHSEG1_3TQ|PRSEG_1TQ)		
+        # self.WriteBytes(CNF3,PHSEG2_3TQ)
         self.WriteBytes(CNF1, CAN_RATE[speed][0])
         self.WriteBytes(CNF2, CAN_RATE[speed][1])
         self.WriteBytes(CNF3, CAN_RATE[speed][2])		
 
-		#set TXB0,TXB1
-		#<15:5> SID 11bit canid
-		#<BIT3> exide,1:extended 0:standard
+        #set TXB0,TXB1
+        #<15:5> SID 11bit canid
+        #<BIT3> exide,1:extended 0:standard
         self.WriteBytes(TXB0SIDH,0xFF)
         self.WriteBytes(TXB0SIDL,0xE0)
         self.WriteBytes(TXB0DLC,0x40|DLC_8)
-		# self.WriteBytes(TXB1SIDH,0x50)
-		# self.WriteBytes(TXB1SIDL,0x00)
-		# self.WriteBytes(TXB1DLC,0x40 | DLC_8)    #Set DLC = 3 bytes and RTR bit*/
-
-		#Set RX
-        self.WriteBytes(RXB0SIDH, 0x00)
-        self.WriteBytes(RXB0SIDL, 0x60)
-        self.WriteBytes(RXB0CTRL, 0x20)
+        # self.WriteBytes(TXB1SIDH,0x50)
+        # self.WriteBytes(TXB1SIDL,0x00)
+        # self.WriteBytes(TXB1DLC,0x40 | DLC_8)    #Set DLC = 3 bytes and RTR bit*/	
+        #Set RX
+        
+        self.WriteBytes(RXM0SIDH,0xE0)
+        self.WriteBytes(RXM0SIDL,0x00)
+        self.WriteBytes(RXF0SIDH,0x28)
+        self.WriteBytes(RXF0SIDL,0x20)
+        
+        self.WriteBytes(RXB0SIDH,0x00)
+        self.WriteBytes(RXB0SIDL,0x60)
+        self.WriteBytes(RXB0CTRL,0x20)
         self.WriteBytes(RXB0DLC, DLC_8)
-		
-        print(hex(self.ReadByte(RXB0SIDH)))
-        print(hex(self.ReadByte(RXB0SIDL)))
-        print(hex(self.ReadByte(RXB0CTRL)))
+        
+        print(f'RXB0SIDH Hex Value After INIT: {hex(self.ReadByte(RXB0SIDH))}')
+        print(f'RXB0SIDL Hex Value After INIT: {hex(self.ReadByte(RXB0SIDL))}')
+        print(f'RXB0CTRL Hex Value After INIT: {hex(self.ReadByte(RXB0CTRL))}')
+        print(f'RXM0SIDH Hex Value After INIT: {hex(self.ReadByte(RXM0SIDH))}')
+        print(f'RXM0SIDL Hex Value After INIT: {hex(self.ReadByte(RXM0SIDL))}')
+        print(f'RXF0SIDH Hex Value After INIT: {hex(self.ReadByte(RXF0SIDH))}')
+        print(f'RXF0SIDL Hex Value After INIT: {hex(self.ReadByte(RXF0SIDL))}')
+        
+        self.WriteBytes(RXF0SIDH,0xFF)
+        self.WriteBytes(RXF0SIDL,0xE0)
+        self.WriteBytes(RXM0SIDH,0xFF)
+        self.WriteBytes(RXM0SIDL,0xE0)
 
-        self.WriteBytes(RXF0SIDH, 0xFF)
-        self.WriteBytes(RXF0SIDL, 0xE0)
-        self.WriteBytes(RXM0SIDH, 0xFF)
-        self.WriteBytes(RXM0SIDL, 0xE0)
+        #can int
+        self.WriteBytes(CANINTF,0x00)#clean interrupt flag
+        self.WriteBytes(CANINTE,0x01)#Receive Buffer 0 Full Interrupt Enable Bit
 
-		#can int
-        self.WriteBytes(CANINTF, 0x00)#clean interrupt flag
-        self.WriteBytes(CANINTE, 0x01)#Receive Buffer 0 Full Interrupt Enable Bit
-
+	
         self.WriteBytes(CANCTRL, REQOP_NORMAL|CLKOUT_ENABLED)#
 
         dummy=self.ReadByte(CANSTAT)
@@ -512,68 +522,86 @@ class MCP2515():
             self.WriteBytes(CANCTRL, REQOP_NORMAL|CLKOUT_ENABLED)#set normal mode
 
     def Send(self, CAN_ID, CAN_TX_Buf, length1):
-        tempdata = self.ReadByte(CAN_RD_STATUS)
-        self.WriteBytes(TXB0SIDH, (CAN_ID>>3)&0XFF)
-        self.WriteBytes(TXB0SIDL, (CAN_ID&0x07)<<5)
-        
-        self.WriteBytes(TXB0EID8, 0)
-        self.WriteBytes(TXB0EID0, 0)
-        self.WriteBytes(TXB0DLC, length1)
-        for j in range(0, length1): 
-            self.WriteBytes(TXB0D0+j,CAN_TX_Buf[j])
+		tempdata = self.ReadByte(CAN_RD_STATUS)
+		self.WriteBytes(TXB0SIDH, (CAN_ID>>3)&0XFF)
+		self.WriteBytes(TXB0SIDL, (CAN_ID&0x07)<<5)
+		
+		self.WriteBytes(TXB0EID8, 0)
+		self.WriteBytes(TXB0EID0, 0)
+		self.WriteBytes(TXB0DLC, length1)
+		for j in range(0, length1): 
+			self.WriteBytes(TXB0D0+j,CAN_TX_Buf[j])
 
-        if(tempdata&0x04):# TXREQ
-            time.sleep(0.01)
-            self.WriteBytes(TXB0CTRL, 0)#clean flag
-            while(1):#wite 
-                if(self.ReadByte(CAN_RD_STATUS)&0x04 != 1):
-                    break
-        self.WriteByte(CAN_RTS_TXB0)
+		if(tempdata&0x04):# TXREQ
+			time.sleep(0.01)
+			self.WriteBytes(TXB0CTRL, 0)#clean flag
+			while(1):#wite 
+				if(self.ReadByte(CAN_RD_STATUS)&0x04 != 1):
+					break
+		self.WriteByte(CAN_RTS_TXB0)
 
     def Receive(self, CAN_ID):
-        print(hex(CAN_ID))
+        print('script started')
         self.WriteBytes(RXB0SIDH, (CAN_ID>>3)&0XFF)
         self.WriteBytes(RXB0SIDL, (CAN_ID&0x07)<<5)
-        print(hex(self.ReadByte(RXB0SIDH)))
-        print(hex(self.ReadByte(RXB0SIDL)))
+        print('ID written')
+        print(f'RXB0SIDH Hex Value Post CAN_ID: {hex(self.ReadByte(RXB0SIDH))}')
+        print(f'RXB0SIDL Hex Value Post CAN_ID: {hex(self.ReadByte(RXB0SIDL))}')
+        #self.WriteBytes(RXB0CTRL,0x60)
+        print('filter set')
+        print(f'RXB0CTRL Hex Value Post Filter Set: {hex(self.ReadByte(RXB0CTRL))}')
+        
         CAN_RX_Buf = []
         while(1):
+            print(f'Buffer Full: {self.ReadByte(CANINTF) & 0x01}')
             if(self.ReadByte(CANINTF) & 0x01):
+                print(f'Buffer Full: {self.ReadByte(CANINTF) & 0x01}')
+                print('in if statement')
                 len = self.ReadByte(RXB0DLC)
                 print(len)
                 for i in range(0, len): 
                     CAN_RX_Buf.append(hex(self.ReadByte(RXB0D0+i)))
                     # print(self.ReadByte(RXB0D0+i))
                 break
-
+            time.sleep(0.1)
+            
         self.WriteBytes(CANINTF, 0)
         self.WriteBytes(CANINTE,0x01)#enable
         self.WriteBytes(RXB0SIDH,0x00)#clean
         self.WriteBytes(RXB0SIDL,0x60)
         return CAN_RX_Buf
-        
+		
 if __name__ == '__main__':
-	print("--------------------------------------------------------")
-	can = MCP2515()
-	print("init...")
-	can.Init()
-	print("send data...")
-	id = 0x129 #max 7ff
-	data = [1, 2, 3, 4, 5, 6, 7, 8]
-	dlc = 8
-	can.Send(id, data, dlc)
+    print("--------------------------------------------------------")
+    can = MCP2515()
+    print("init...")
+    can.Init()
+    #print("send data...")
+    id = 0x141
+    #ie = 0x142
+    #il = 0x146
+    #ig = 0x148
+    #data = [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]
+    #data2 = [0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F]
+    #data3 = [0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17]
+    #data4 = [0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F]
+    #dlc = 8
+    
+    #can.Send(id, data, dlc)
+    #can.Send(ie, data2, dlc)
+    #can.Send(il, data3, dlc)
+    #can.Send(ig, data4, dlc)
 
-	readbuf = []
-	# while(1):
-	while(1):
-		readbuf = can.Receive(id)
-		print(readbuf)
-		time.sleep(0.5)
+    readbuf = []
+    # while(1):
+    while(1):
+        readbuf = can.Receive(id)
+        print(readbuf)
+        print('read it')
+        #time.sleep(0.5)
 
-	print("--------------------------------------------------------")
+    print("--------------------------------------------------------")
 
 
 
-
-    print(readbuf)
     time.sleep(0.5)
